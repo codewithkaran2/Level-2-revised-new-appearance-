@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chaos Keyboard Battle</title>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; background-color: black; color: white; }
+        canvas { background-color: gray; display: block; margin: auto; }
+        .controls { margin-top: 10px; font-size: 16px; }
+        .winner { font-size: 24px; font-weight: bold; color: yellow; }
+    </style>
+</head>
+<body>
+
+    <h1>Chaos Keyboard Battle</h1>
+    <canvas id="gameCanvas"></canvas>
+    <p class="winner" id="winner"></p>
+
+    <!-- Player Controls -->
+    <div class="controls">
+        <h3>Controls:</h3>
+        <p><b>Player 1 (Blue)</b>: Move: W A S D | Shoot: SPACE | Shield: Q</p>
+        <p><b>Player 2 (Red)</b>: Move: Arrow Keys | Shoot: ENTER | Shield: M</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = 800;
+        canvas.height = 400;
+
+        const player1 = { x: 100, y: 300, width: 40, height: 40, color: "blue", health: 100, shield: 100, shieldActive: false };
+        const player2 = { x: 600, y: 300, width: 40, height: 40, color: "red", health: 100, shield: 100, shieldActive: false };
+
+        let bullets = [];
+        let gameRunning = true;
+
+        const keys = {
+            w: false, a: false, s: false, d: false,
+            ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false,
+            q: false, m: false
+        };
+
+        const speed = 5;
+
+        document.addEventListener("keydown", (e) => {
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+            if (e.key === "q" && player1.shield > 0) player1.shieldActive = true;
+            if (e.key === "m" && player2.shield > 0) player2.shieldActive = true;
+        });
+
+        document.addEventListener("keyup", (e) => {
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+            if (e.key === "q") player1.shieldActive = false;
+            if (e.key === "m") player2.shieldActive = false;
+        });
+
+        function shoot(player) {
+            if (!gameRunning) return;
+            let bulletSpeed = player === player1 ? 7 : -7;
+            bullets.push({
+                x: player.x + player.width / 2,
+                y: player.y + player.height / 2,
+                width: 10,
+                height: 5,
+                speed: bulletSpeed,
+                color: player.color,
+                shooter: player
+            });
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (keys.a && player1.x > 0) player1.x -= speed;
+            if (keys.d && player1.x + player1.width < canvas.width) player1.x += speed;
+            if (keys.w && player1.y > 0) player1.y -= speed;
+            if (keys.s && player1.y + player1.height < canvas.height) player1.y += speed;
+
+            if (keys.ArrowLeft && player2.x > 0) player2.x -= speed;
+            if (keys.ArrowRight && player2.x + player2.width < canvas.width) player2.x += speed;
+            if (keys.ArrowUp && player2.y > 0) player2.y -= speed;
+            if (keys.ArrowDown && player2.y + player2.height < canvas.height) player2.y += speed;
+
+            ctx.fillStyle = player1.color;
+            ctx.fillRect(player1.x, player1.y, player1.width, player1.height);
+
+            ctx.fillStyle = player2.color;
+            ctx.fillRect(player2.x, player2.y, player2.width, player2.height);
+
+            bullets.forEach((bullet, index) => {
+                bullet.x += bullet.speed;
+
+                if (
+                    bullet.shooter === player1 &&
+                    bullet.x >= player2.x && bullet.x <= player2.x + player2.width &&
+                    bullet.y >= player2.y && bullet.y <= player2.y + player2.height
+                ) {
+                    if (player2.shieldActive && player2.shield > 0) {
+                        player2.shield -= 20;
+                    } else {
+                        player2.health -= 10;
+                    }
+                    bullets.splice(index, 1);
+                }
+
+                if (
+                    bullet.shooter === player2 &&
+                    bullet.x <= player1.x + player1.width && bullet.x >= player1.x &&
+                    bullet.y >= player1.y && bullet.y <= player1.y + player1.height
+                ) {
+                    if (player1.shieldActive && player1.shield > 0) {
+                        player1.shield -= 20;
+                    } else {
+                        player1.health -= 10;
+                    }
+                    bullets.splice(index, 1);
+                }
+
+                if (bullet.x < 0 || bullet.x > canvas.width) {
+                    bullets.splice(index, 1);
+                }
+
+                ctx.fillStyle = bullet.color;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+
+            if (player1.shieldActive && player1.shield > 0) {
+                ctx.strokeStyle = "cyan";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(player1.x - 5, player1.y - 5, player1.width + 10, player1.height + 10);
+            }
+            if (player2.shieldActive && player2.shield > 0) {
+                ctx.strokeStyle = "yellow";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(player2.x - 5, player2.y - 5, player2.width + 10, player2.height + 10);
+            }
+
+            ctx.fillStyle = "white";
+            ctx.font = "16px Arial";
+            ctx.fillText(`P1 Health: ${player1.health}% | Shield: ${player1.shield}%`, 10, 20);
+            ctx.fillText(`P2 Health: ${player2.health}% | Shield: ${player2.shield}%`, canvas.width - 220, 20);
+
+            if (player1.health <= 0) {
+                document.getElementById("winner").innerText = "Player 2 Wins!";
+                gameRunning = false;
+            }
+            if (player2.health <= 0) {
+                document.getElementById("winner").innerText = "Player 1 Wins!";
+                gameRunning = false;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === " " && gameRunning) shoot(player1);
+            if (e.key === "Enter" && gameRunning) shoot(player2);
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>
